@@ -15,7 +15,7 @@ let package = Package(
   dependencies: [
     .package(url: "https://github.com/ordo-one/equatable", exact: "1.4.1"),
     .package(url: "https://github.com/pointfreeco/swift-snapshot-testing", exact: "1.19.4"),
-    .package(url: "https://github.com/AppersonLabs/swift-markdown.git", revision: "af03e18020ce2994d933d9ac4604b0ee5a32beb9"),
+    .package(url: "https://github.com/AppersonLabs/swift-markdown.git", revision: "fa2e2bc6a5f3348a02dfe28000a5f3b9132193ed"),
     .package(url: "https://github.com/appstefan/highlightswift", revision: "99c431b38a1444a5fd6a4978307fbbefe3a7af53"),
     .package(url: "https://github.com/junyan72/iosMath", revision: "ba9ab7729b151329c54fd895a7c1859981d9484c"),
     .package(url: "https://github.com/markiv/SwiftUI-Shimmer", exact: "1.5.1")

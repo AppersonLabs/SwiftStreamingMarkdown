@@ -48,7 +48,7 @@
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/AppersonLabs/swift-markdown.git",
       "state" : {
-        "revision" : "af03e18020ce2994d933d9ac4604b0ee5a32beb9"
+        "revision" : "fa2e2bc6a5f3348a02dfe28000a5f3b9132193ed"
       }
     },
     {

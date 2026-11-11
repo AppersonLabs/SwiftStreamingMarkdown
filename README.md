@@ -331,12 +331,14 @@ license terms via Swift Package Manager.
 This fork keeps Markdown parsing and text layout native and lets the host app supply:
 
 - A `MarkdownCodeBlocks` value in `markdownCodeBlock` to draw custom fences (such as native Mermaid diagrams). Return `nil` for the standard code view.
-- A `MarkdownTaps` value in `markdownTap` to handle single prose taps, excluding links, attachments and selections.
-- `LinkConfig` rules to strip refused destinations and prepend inline link icons. Change its ID when those rules or icons change.
-- `ImageConfig.ImageType.publicRemote` to allow HTTPS images only from public DNS names. This checks names, not DNS resolution.
+- A `MarkdownTaps` value in `markdownTap` to handle a tap anywhere in the document: prose, tables, code, math, list markers and the gaps between blocks. Links, attachments, images, child controls and drags keep their own behavior. `MarkdownController` holds one selection policy for the whole document: a tap while any paragraph has text selected only clears the selection. Table Copy and Download actions appear only when a `MarkdownListener` handles them.
+- `LinkConfig` rules to strip refused destinations and prepend inline link icons. Icons carry `.markdownDecoration`, so copied text, VoiceOver labels and "Select more text" leave them out. To change an icon after it loaded, set the attachment's image in place (same bounds) and call `redrawMarkdown()` on it; change the config ID only when the rules change.
+- `ImageConfig.ImageType.publicRemote` to allow HTTPS images only from public DNS names. Every IPv4 spelling a URL parser accepts (`0x7f.1`, `2130706433`, `017700000001`), IPv6 literals and local or reserved suffixes are refused. This checks names, not DNS resolution.
 
-Inline `$…$` math follows Pandoc's whitespace and currency rules. Ordered lists retain their written starting number. `CodeBlockView` is public so custom renderers can use it when they cannot draw a fence.
+Remote images load through an ephemeral session that keeps no cookies, cache or credentials and sends no referrer. A redirect is followed only to a source the same `ImageConfig` accepts.
+
+Math delimiters (`$…$`, `\(…\)`, `$$…$$`, `\[…\]`) are rewritten only in prose. A first parse marks code blocks at any depth, code spans, raw HTML, link destinations, reference definitions and bare URLs, which keep their text. Inline `$…$` follows Pandoc's whitespace and currency rules. Ordered lists retain their written starting number. `CodeBlockView` is public so custom renderers can use it when they cannot draw a fence.
 
 The host app owns Mermaid parsing, rendering and streaming fallback; this package has no WebKit diagram dependency.
 
-The parser dependency is pinned to AppersonLabs/swift-markdown with macOS 13 / iOS 16 deployment floors. This avoids a pointer-authentication failure in ManagedBuffer subclass metadata after Xcode partially links packages built for older OS versions; parser source is unchanged.
+The parser dependency is pinned to AppersonLabs/swift-markdown with macOS 13 / iOS 16 deployment floors in both of its manifests. This avoids a pointer-authentication failure in ManagedBuffer subclass metadata after Xcode partially links packages built for older OS versions; parser source is unchanged.
