@@ -13,6 +13,7 @@ import AppKit
 extension NSAttributedString.Key {
   /// Marks a run the reader sees but that is not part of the words, such as a
   /// link's site icon. Copied, spoken and "Select more text" text leaves it out.
+  /// A `URL` value is the destination a click on the run opens.
   public static let markdownDecoration = NSAttributedString.Key("MarkdownTextDecoration")
 }
 
@@ -48,6 +49,12 @@ extension NSAttributedString {
     }
     for range in decorations.reversed() { copy.deleteCharacters(in: range) }
     return copy
+  }
+
+  /// The destination of the decoration at `index`, if it has one.
+  func decorationLink(at index: Int) -> URL? {
+    guard index >= 0, index < length else { return nil }
+    return attribute(.markdownDecoration, at: index, effectiveRange: nil) as? URL
   }
 
   /// Whether any decoration lies in `range`.

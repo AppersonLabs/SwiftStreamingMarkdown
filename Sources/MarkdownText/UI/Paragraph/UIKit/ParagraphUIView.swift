@@ -414,6 +414,11 @@ extension ParagraphUIView: UITextViewDelegate {
   }
 
   func textView(_ textView: UITextView, shouldInteractWith textAttachment: NSTextAttachment, in characterRange: NSRange) -> Bool {
+    if let url = textStorage.decorationLink(at: characterRange.location) {
+      self.onUrlTap(url)
+      return false
+    }
+
     // Check if this is our custom citation attachment with pre-decoded data
     if let citationAttachment = textAttachment as? InlineCitationAttachment,
        let citationData = citationAttachment.citationData {

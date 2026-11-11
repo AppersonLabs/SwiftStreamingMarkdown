@@ -94,10 +94,7 @@ final class LinkRenderingTests: XCTestCase {
     let content = await firstParagraph("see [docs](https://example.com)", config: config)
     let iconIndex = ("see " as NSString).length
     XCTAssertNotNil(content?.attribute(.attachment, at: iconIndex, effectiveRange: nil))
-    XCTAssertEqual(
-      (content?.attribute(.link, at: iconIndex, effectiveRange: nil) as? URL)?.absoluteString,
-      "https://example.com"
-    )
+    XCTAssertEqual(content?.decorationLink(at: iconIndex)?.absoluteString, "https://example.com")
   }
 
   func test_linkConfigsCompareByID() {

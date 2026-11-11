@@ -369,11 +369,24 @@ class ParagraphNSView: NSTextView {
     let wasSelected = hasSelection || markdownController?.hasSelection == true
     // Returns once the mouse is up: the text view tracks the drag itself.
     super.mouseDown(with: event)
-    guard event.clickCount == 1, !hasSelection,
-      !isInteractive(at: convert(event.locationInWindow, from: nil)) else {
-      return
+    let point = convert(event.locationInWindow, from: nil)
+    guard event.clickCount == 1, !hasSelection else { return }
+    if let url = decorationLink(at: point) {
+      onUrlTap(url)
+    } else if !isInteractive(at: point) {
+      markdownController?.tap(onTap, wasSelected: wasSelected)
     }
-    markdownController?.tap(onTap, wasSelected: wasSelected)
+  }
+
+  /// The destination of a decoration, such as a link icon, drawn under `point`.
+  private func decorationLink(at point: NSPoint) -> URL? {
+    guard let layoutManager, let textContainer, let textStorage else { return nil }
+    let location = NSPoint(x: point.x - textContainerOrigin.x, y: point.y - textContainerOrigin.y)
+    let glyph = layoutManager.glyphIndex(for: location, in: textContainer)
+    guard layoutManager.boundingRect(forGlyphRange: NSRange(location: glyph, length: 1), in: textContainer).contains(location) else {
+      return nil
+    }
+    return textStorage.decorationLink(at: layoutManager.characterIndexForGlyph(at: glyph))
   }
 
   override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {

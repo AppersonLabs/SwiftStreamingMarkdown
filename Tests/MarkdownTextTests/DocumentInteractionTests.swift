@@ -51,8 +51,11 @@ final class DocumentInteractionTests: XCTestCase {
       return XCTFail("Expected a paragraph")
     }
     let index = ("see " as NSString).length
-    XCTAssertNotNil(content.attribute(.markdownDecoration, at: index, effectiveRange: nil))
-    XCTAssertNotNil(content.attribute(.link, at: index, effectiveRange: nil))
+    XCTAssertEqual(content.decorationLink(at: index)?.absoluteString, "https://example.com")
+    XCTAssertNil(content.attribute(.link, at: index, effectiveRange: nil))
+    var linkRange = NSRange()
+    XCTAssertNotNil(content.attribute(.link, at: index + 1, effectiveRange: &linkRange))
+    XCTAssertEqual((content.string as NSString).substring(with: linkRange), "docs")
     XCTAssertNil(content.attribute(.markdownDecoration, at: index + 1, effectiveRange: nil))
     XCTAssertEqual(content.plainText, "see docs")
   }
