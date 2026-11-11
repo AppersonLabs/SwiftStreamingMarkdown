@@ -50,7 +50,7 @@ final class TaskListTests: XCTestCase {
     let document = await parser.parse(text: text)
     let renderables = document.convert(with: .default)
 
-    guard case .orderedList(_, let items) = renderables.first else {
+    guard case .orderedList(_, let items, _) = renderables.first else {
       return XCTFail("Expected the parsed document to start with an ordered list")
     }
     XCTAssertTrue(items.allSatisfy { $0.checkbox == nil })
@@ -72,5 +72,14 @@ final class TaskListTests: XCTestCase {
     }
     XCTAssertEqual(nestedLevel, 1)
     XCTAssertEqual(nestedItems.map(\.checkbox), [.checked, .unchecked])
+  }
+
+  func test_orderedList_keepsItsWrittenStart() async {
+    let document = await parser.parse(text: "9. Nine\n10. Ten")
+    guard case .orderedList(_, let items, let start) = document.convert(with: .default).first else {
+      return XCTFail("Expected an ordered list")
+    }
+    XCTAssertEqual(items.count, 2)
+    XCTAssertEqual(start, 9)
   }
 }

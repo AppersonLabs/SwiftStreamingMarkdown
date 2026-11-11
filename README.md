@@ -325,3 +325,18 @@ Please follow the responsible-disclosure process described in
 SwiftStreamingMarkdown is released under the [MIT License](LICENSE). Dependencies
 are declared in [`Package.swift`](Package.swift); each upstream ships its own
 license terms via Swift Package Manager.
+
+## AppersonLabs fork
+
+This fork keeps Markdown parsing and text layout native and lets the host app supply:
+
+- A `MarkdownCodeBlocks` value in `markdownCodeBlock` to draw custom fences (such as native Mermaid diagrams). Return `nil` for the standard code view.
+- A `MarkdownTaps` value in `markdownTap` to handle single prose taps, excluding links, attachments and selections.
+- `LinkConfig` rules to strip refused destinations and prepend inline link icons. Change its ID when those rules or icons change.
+- `ImageConfig.ImageType.publicRemote` to allow HTTPS images only from public DNS names. This checks names, not DNS resolution.
+
+Inline `$…$` math follows Pandoc's whitespace and currency rules. Ordered lists retain their written starting number. `CodeBlockView` is public so custom renderers can use it when they cannot draw a fence.
+
+The host app owns Mermaid parsing, rendering and streaming fallback; this package has no WebKit diagram dependency.
+
+The parser dependency is pinned to AppersonLabs/swift-markdown with macOS 13 / iOS 16 deployment floors. This avoids a pointer-authentication failure in ManagedBuffer subclass metadata after Xcode partially links packages built for older OS versions; parser source is unchanged.

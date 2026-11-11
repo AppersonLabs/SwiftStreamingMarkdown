@@ -64,4 +64,23 @@ afterafterafterafterafterafter
     XCTAssertEqual(parsed.document.childCount, 5)
     XCTAssertFalse(parsed.speculativeRewritten)
   }
+
+  func test_streamedPrefixesEndAtTheSameDocument() async {
+    let text = "## Title\n\n9. First\n10. Second\n\n```unknown-language\nhello\n```\n\nSee [docs][ref].\n\n[ref]: https://example.com"
+    for end in text.indices {
+      _ = await parser.parse(text: String(text[..<end]), option: .init(speculativeRewrite: true))
+    }
+    let streamed = await parser.parse(text: text)
+    let fresh = await MarkdownParserImpl().parse(text: text)
+    XCTAssertEqual(streamed.convert(with: .default), fresh.convert(with: .default))
+  }
+
+  func test_unknownFenceKeepsItsSource() async {
+    let document = await parser.parse(text: "```unknown-language\nhello\n```")
+    guard case .codeBlock(_, let language, let code) = document.convert(with: .default).first else {
+      return XCTFail("Expected a code block")
+    }
+    XCTAssertEqual(language, "unknown-language")
+    XCTAssertEqual(code.trimmingCharacters(in: .newlines), "hello")
+  }
 }

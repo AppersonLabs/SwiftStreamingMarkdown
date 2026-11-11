@@ -15,6 +15,6 @@ extension OrderedList: BlockConvertible {
       MarkdownListItem(children: listItem.blockConvertibleChildren.map { $0.convert(attributeContainer: attributeContainer, config: config)},
                        startsWithBold: listItem.startsWithBold)
     }
-    return .orderedList(id: self.id, items: items)
+    return .orderedList(id: self.id, items: items, start: Int(self.startIndex))
   }
 }

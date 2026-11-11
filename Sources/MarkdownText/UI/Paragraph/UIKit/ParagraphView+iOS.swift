@@ -23,7 +23,7 @@ struct ParagraphView: UIViewRepresentable {
     let openUrlFunction = openURL.callAsFunction(_:)
     let view = ParagraphViewCache.shared.createOrReuseView(contents: contents, lineSpacing: lineSpacing)
     view.onUrlTap = openUrlFunction
-    view.onTap = onTap
+    view.onTap = onTap.map { tap in { tap() } }
     view.setParagraphContents(contents, lineSpacing: lineSpacing, animatedByWord: false)
     view.setTextContextMenu(config.resolvedTextContextMenu)
     view.setMarkdownController(markdownController)
@@ -45,7 +45,7 @@ struct ParagraphView: UIViewRepresentable {
     }
     view.setTextContextMenu(config.resolvedTextContextMenu)
     view.setMarkdownController(markdownController)
-    view.onTap = onTap
+    view.onTap = onTap.map { tap in { tap() } }
   }
 
   // If we don't implement this function, the snapshot tests will fail with incorrect sizing.

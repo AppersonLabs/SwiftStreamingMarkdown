@@ -9,16 +9,24 @@ import SwiftUI
 struct OrderedListView: View {
 
   let items: [MarkdownListItem]
+  /// The number of the first item, as written in the Markdown.
+  var start = 1
   @Environment(\.markdownConfig) var config: MarkdownRenderConfig
 
   var body: some View {
     VStack(alignment: .leading, spacing: 8, content: {
       ForEach(0..<items.count, id: \.self) { idx in
         HStack(alignment: .centerOfFirstLine, spacing: 11) {
-          Text(verbatim: "\(idx+1).")
+          // Every number takes the width of the last, the widest, so item text lines up.
+          Text(verbatim: "\(start + items.count - 1).")
             .font(config.orderedListStyle.textFonts, bold: true)
-            .foregroundStyle(config.orderedListStyle.textColor)
-            .transition(.opacity)
+            .hidden()
+            .overlay(alignment: .trailing) {
+              Text(verbatim: "\(start + idx).")
+                .font(config.orderedListStyle.textFonts, bold: true)
+                .foregroundStyle(config.orderedListStyle.textColor)
+                .transition(.opacity)
+            }
           if let firstChild = items[idx].children.first {
             if case .paragraph(_, let contents) = firstChild {
               // Wrap the SingleBlockView to provide proper baseline alignment. This is to fix the mis-alignment when the view is rendered off-screen, e.g. snapshot.

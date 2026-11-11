@@ -25,7 +25,7 @@ indirect enum MarkdownRenderable: Identifiable, Equatable, @unchecked Sendable {
   case heading(id: String, level: Int, content: NSMutableAttributedString)
 
   /// To be rendered as a ordered list view
-  case orderedList(id: String, items: [MarkdownListItem])
+  case orderedList(id: String, items: [MarkdownListItem], start: Int)
 
   /// To be rendered as an unordered list
   case unorderedList(id: String, items: [MarkdownListItem], nestedLevel: Int)
@@ -51,7 +51,7 @@ indirect enum MarkdownRenderable: Identifiable, Equatable, @unchecked Sendable {
     case .paragraph(let id, _): return id
     case .latex(let id, _): return id
     case .heading(let id, _, _): return id
-    case .orderedList(let id, _): return id
+    case .orderedList(let id, _, _): return id
     case .unorderedList(let id, _, _): return id
     case .codeBlock(let id, _, _): return id
     case .table(let id, _, _, _): return id

@@ -7,7 +7,9 @@ import Foundation
 import HighlightSwift
 import SwiftUI
 
-struct CodeBlockView: View {
+/// The built-in fenced code block: a language label, a copy control and
+/// highlighted code. Public so a `markdownCodeBlock` hook can fall back to it.
+public struct CodeBlockView: View {
 
   @Environment(\.markdownConfig) private var config: MarkdownRenderConfig
   @Environment(\.colorScheme) private var colorScheme
@@ -20,7 +22,7 @@ struct CodeBlockView: View {
   @State var attributedString: AttributedString?
   @StateObject private var taskManager: HighlightTaskManager = HighlightTaskManager()
 
-  init(language: String, code: String, onCodeCopied: (() -> Void)? = nil) {
+  public init(language: String, code: String, onCodeCopied: (() -> Void)? = nil) {
     self.language = language
     self.code = code
     self.onCodeCopied = onCodeCopied
@@ -66,7 +68,7 @@ struct CodeBlockView: View {
     .padding(16)
   }
 
-  var body: some View {
+  public var body: some View {
     VStack(spacing: 0) {
       HStack(alignment: .top) {
         Text(language)
