@@ -30,6 +30,10 @@ class ParagraphNSView: NSTextView {
 
   var onUrlTap: (URL) -> Void = { NSWorkspace.shared.open($0) }
 
+  /// Called when a click lands on prose rather than on a link, an attachment
+  /// or a text selection.
+  var onTap: (() -> Void)?
+
   convenience init() {
     let textStorage = NSTextStorage()
     let layoutManager = NSLayoutManager()
@@ -326,6 +330,30 @@ class ParagraphNSView: NSTextView {
       onUrlTap(url)
     } else if let string = link as? String, let url = URL.fromMixedEncodingString(string) {
       onUrlTap(url)
+    }
+  }
+
+  // MARK: - Prose Clicks
+
+  override func mouseDown(with event: NSEvent) {
+    let beganOnSelection = selectedRange().length > 0
+    // Returns once the mouse is up: the text view tracks the drag itself.
+    super.mouseDown(with: event)
+    guard let onTap, event.clickCount == 1, !beganOnSelection, selectedRange().length == 0,
+      !isInteractive(at: convert(event.locationInWindow, from: nil)) else {
+      return
+    }
+    onTap()
+  }
+
+  /// Whether a link or an attachment sits on either side of `point`.
+  private func isInteractive(at point: NSPoint) -> Bool {
+    guard let textStorage else { return false }
+    let index = characterIndexForInsertion(at: point)
+    return [index - 1, index].contains { index in
+      guard index >= 0, index < textStorage.length else { return false }
+      let attributes = textStorage.attributes(at: index, effectiveRange: nil)
+      return attributes[.link] != nil || attributes[.attachment] != nil
     }
   }
 

@@ -98,9 +98,10 @@ extension Markdown.Link: InlineConvertible {
     }
 
     guard let destination = self.destination,
-          let url = self.createURL(from: destination)
+          let url = self.createURL(from: destination),
+          config.linkConfig.allows(url)
     else {
-      // Not a valid URL, return plain text
+      // Not a valid or allowed URL, return plain text
       return buildAttributedString()
     }
 
@@ -124,7 +125,13 @@ extension Markdown.Link: InlineConvertible {
       container[.font] = config.inlineStyle.linkTextFont
       container[.foregroundColor] = MDColor(config.inlineStyle.linkTextColor)
       container[.underlineStyle] = config.inlineStyle.linkUnderlineStyle.rawValue
-      return buildAttributedString()
+      let text = buildAttributedString()
+      if text.length > 0, let icon = config.linkConfig.icon(url) {
+        let iconString = NSMutableAttributedString(attachment: icon)
+        iconString.addAttribute(.link, value: url, range: NSRange(location: 0, length: iconString.length))
+        text.insert(iconString, at: 0)
+      }
+      return text
     }
   }
 }

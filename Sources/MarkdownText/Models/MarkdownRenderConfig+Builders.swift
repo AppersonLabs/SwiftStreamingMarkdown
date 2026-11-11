@@ -256,4 +256,25 @@ extension MarkdownRenderConfig {
       imageConfig: value
     )
   }
+
+  /// Returns a copy with `linkConfig` replaced.
+  public func withLinkConfig(_ value: LinkConfig) -> MarkdownRenderConfig {
+    MarkdownRenderConfig(
+      shouldAnimateText: shouldAnimateText,
+      blockQuoteStyle: blockQuoteStyle,
+      headingStyle: headingStyle,
+      orderedListStyle: orderedListStyle,
+      paragraphStyle: paragraphStyle,
+      tableStyle: tableStyle,
+      inlineStyle: inlineStyle,
+      textContextMenu: textContextMenu,
+      citationConfig: citationConfig,
+      codeBlockConfig: codeBlockConfig,
+      blockSpacing: blockSpacing,
+      textSelectionConfig: textSelectionConfig,
+      thematicBreakColor: thematicBreakColor,
+      imageConfig: imageConfig,
+      linkConfig: value
+    )
+  }
 }

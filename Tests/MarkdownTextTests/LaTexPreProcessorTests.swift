@@ -311,4 +311,40 @@ final class LaTexPreProcessorTests: XCTestCase {
     )
     XCTAssertEqual(processed, expected)
   }
+
+  // MARK: - Inline dollar math
+
+  func testInlineDollarMath() {
+    XCTAssertEqual(
+      preprocessor.process(input: "Euler: $e^{i\\pi} + 1 = 0$ and $x$."),
+      "Euler: `\\(e^{i\\pi} + 1 = 0\\)` and `\\(x\\)`."
+    )
+  }
+
+  func testInlineDollarLeavesPricesAsText() {
+    for input in ["It costs $5 and $10.", "From $5-$10 a month.", "Paid \\$5 for $x", "a $ b $ c"] {
+      XCTAssertEqual(preprocessor.process(input: input), input)
+    }
+  }
+
+  func testInlineDollarLeavesCodeAlone() {
+    let input = """
+    Run `echo $a+$b` then:
+    ```bash
+    echo $a+$b
+    ```
+    ~~~
+    $x$
+    ~~~
+    """
+    XCTAssertEqual(preprocessor.process(input: input), input)
+  }
+
+  func testInlineDollarDisabledLeavesDollarsAsText() {
+    let input = "Here $x$ stays."
+    XCTAssertEqual(
+      preprocessor.process(input: input, matchingRules: [.inlineSlashBracket, .blockDollar, .blockSlashBracket]),
+      input
+    )
+  }
 }

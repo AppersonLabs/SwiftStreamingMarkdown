@@ -93,4 +93,27 @@ final class ImageConfigTests: XCTestCase {
     let off = ImageConfig(enabled: true, allowedImageTypes: [.assetCatalog], fullscreenViewerEnabled: false)
     XCTAssertNotEqual(on, off)
   }
+
+  // MARK: - Public hosts
+
+  func test_publicRemote_allows_public_hosts_only() {
+    let config = ImageConfig(enabled: true, allowedImageTypes: [.publicRemote])
+    XCTAssertNotNil(config.resolvedSource(for: "https://cdn.example.com/a.png"))
+    for source in [
+      "https://localhost/a.png",
+      "https://intranet/a.png",
+      "https://192.168.1.10/a.png",
+      "https://[::1]/a.png",
+      "https://printer.local/a.png",
+      "https://build.internal/a.png",
+      "http://cdn.example.com/a.png"
+    ] {
+      XCTAssertNil(config.resolvedSource(for: source), source)
+    }
+  }
+
+  func test_isPublicHost_ignores_case_and_a_trailing_dot() {
+    XCTAssertTrue(ImageConfig.isPublicHost("Example.COM."))
+    XCTAssertFalse(ImageConfig.isPublicHost("Router.Home.Arpa"))
+  }
 }

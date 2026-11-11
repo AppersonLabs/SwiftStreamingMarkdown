@@ -38,6 +38,7 @@ extension ImageConfig {
   /// the host is validated against each type's `allowedDomains`.
   private func allowsRemoteImage(host: String?) -> Bool {
     guard let host = host?.lowercased() else { return false }
+    if allowedImageTypes.contains(.publicRemote), Self.isPublicHost(host) { return true }
     for case .remote(let allowedDomains) in allowedImageTypes {
       guard !allowedDomains.isEmpty else { return true }
       let matches = allowedDomains.contains { domain in

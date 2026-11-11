@@ -54,6 +54,9 @@ public struct MarkdownRenderConfig: Hashable, Sendable {
   ///   rendering output may change in future releases. Defaults to `.disabled`.
   public let imageConfig: ImageConfig
 
+  /// Which link destinations stay tappable and what is drawn before their text.
+  public let linkConfig: LinkConfig
+
   /// Font and color style for a uniformly-styled run of markdown text.
   public struct MarkdownTextStyle: Hashable, Sendable {
     /// Font set used for normal, bold, and italic variants.
@@ -283,7 +286,8 @@ public struct MarkdownRenderConfig: Hashable, Sendable {
     blockSpacing: CGFloat = MarkdownRenderConfig.defaultBlockSpacing,
     textSelectionConfig: TextSelectionConfig = .default,
     thematicBreakColor: Color = MarkdownRenderConfig.defaultThematicBreakColor,
-    imageConfig: ImageConfig = .disabled
+    imageConfig: ImageConfig = .disabled,
+    linkConfig: LinkConfig = .default
   ) {
     self.shouldAnimateText = shouldAnimateText
     self.blockQuoteStyle = blockQuoteStyle
@@ -299,6 +303,7 @@ public struct MarkdownRenderConfig: Hashable, Sendable {
     self.textSelectionConfig = textSelectionConfig
     self.thematicBreakColor = thematicBreakColor
     self.imageConfig = imageConfig
+    self.linkConfig = linkConfig
   }
 
   /// The default render config, equivalent to calling `init()` with no

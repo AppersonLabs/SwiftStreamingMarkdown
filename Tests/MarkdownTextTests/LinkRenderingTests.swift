@@ -64,4 +64,44 @@ final class LinkRenderingTests: XCTestCase {
     }
     XCTAssertEqual(underline?.intValue, NSUnderlineStyle.single.rawValue)
   }
+
+  // MARK: - LinkConfig
+
+  private func firstParagraph(_ text: String, config: MarkdownRenderConfig) async -> NSAttributedString? {
+    let document = await parser.parse(text: text)
+    guard case .paragraph(_, let content) = document.convert(with: config).first else { return nil }
+    return content
+  }
+
+  func test_refusedLink_keepsItsTextAndLosesItsDestination() async {
+    let config = MarkdownRenderConfig.default.withLinkConfig(
+      LinkConfig(id: "web", allows: { $0.scheme == "https" })
+    )
+    let content = await firstParagraph("open [this](file:///etc/passwd) or [that](https://example.com)", config: config)
+    XCTAssertEqual(content?.string, "open this or that")
+
+    var destinations: [URL] = []
+    content?.enumerateAttribute(.link, in: NSRange(location: 0, length: content?.length ?? 0)) { value, _, _ in
+      if let url = value as? URL { destinations.append(url) }
+    }
+    XCTAssertEqual(destinations.map(\.absoluteString), ["https://example.com"])
+  }
+
+  func test_icon_leadsTheLinkAndOpensItsDestination() async {
+    let config = MarkdownRenderConfig.default.withLinkConfig(
+      LinkConfig(id: "icons", icon: { _ in NSTextAttachment() })
+    )
+    let content = await firstParagraph("see [docs](https://example.com)", config: config)
+    let iconIndex = ("see " as NSString).length
+    XCTAssertNotNil(content?.attribute(.attachment, at: iconIndex, effectiveRange: nil))
+    XCTAssertEqual(
+      (content?.attribute(.link, at: iconIndex, effectiveRange: nil) as? URL)?.absoluteString,
+      "https://example.com"
+    )
+  }
+
+  func test_linkConfigsCompareByID() {
+    XCTAssertEqual(LinkConfig(id: "a", allows: { _ in false }), LinkConfig(id: "a"))
+    XCTAssertNotEqual(LinkConfig(id: "a"), LinkConfig(id: "b"))
+  }
 }

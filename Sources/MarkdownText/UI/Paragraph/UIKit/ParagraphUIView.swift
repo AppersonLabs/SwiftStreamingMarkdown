@@ -35,6 +35,11 @@ class ParagraphUIView: UITextView {
   // To override the behaviour of this property, do so on ParagraphView's SwiftUI wrapper.
   var onUrlTap: (URL) -> Void = { UIApplication.shared.open($0) }
 
+  /// Called when a tap lands on prose rather than on a link, an attachment or
+  /// a text selection.
+  var onTap: (() -> Void)?
+  private let proseTap = ProseTap()
+
   override init(frame: CGRect, textContainer: NSTextContainer?) {
     super.init(frame: frame, textContainer: textContainer)
     delegate = self
@@ -201,6 +206,30 @@ class ParagraphUIView: UITextView {
 
     // Disable drag interaction to prevent crashes related to dragging from a view that might disappear
     textDragInteraction?.isEnabled = false
+
+    let tap = UITapGestureRecognizer(target: self, action: #selector(handleProseTap(_:)))
+    tap.cancelsTouchesInView = false
+    tap.delegate = proseTap
+    addGestureRecognizer(tap)
+  }
+
+  @objc private func handleProseTap(_ recognizer: UITapGestureRecognizer) {
+    guard let onTap, !proseTap.beganOnSelection, selectedRange.length == 0,
+      !isInteractive(at: recognizer.location(in: self)) else {
+      return
+    }
+    onTap()
+  }
+
+  /// Whether a link or an attachment sits on either side of `point`.
+  private func isInteractive(at point: CGPoint) -> Bool {
+    guard let position = closestPosition(to: point) else { return false }
+    let index = offset(from: beginningOfDocument, to: position)
+    return [index - 1, index].contains { index in
+      guard index >= 0, index < textStorage.length else { return false }
+      let attributes = textStorage.attributes(at: index, effectiveRange: nil)
+      return attributes[.link] != nil || attributes[.attachment] != nil
+    }
   }
 
   /// Creates a custom accessibility action that forwards activation to `onUrlTap`.
@@ -376,6 +405,25 @@ extension ParagraphUIView: UITextViewDelegate {
         markdownController.onContextMenuAppear(id: item.id, selectedContent: selectedText)
       }
     }
+  }
+}
+
+/// Lets the prose tap run beside the text view's own gestures, and remembers
+/// whether the touch began with text selected: by the time the tap fires, the
+/// text view has already cleared the selection that the tap dismissed.
+private final class ProseTap: NSObject, UIGestureRecognizerDelegate {
+  private(set) var beganOnSelection = false
+
+  func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
+    beganOnSelection = ((gestureRecognizer.view as? UITextView)?.selectedRange.length ?? 0) > 0
+    return true
+  }
+
+  func gestureRecognizer(
+    _ gestureRecognizer: UIGestureRecognizer,
+    shouldRecognizeSimultaneouslyWith otherGestureRecognizer: UIGestureRecognizer
+  ) -> Bool {
+    true
   }
 }
 

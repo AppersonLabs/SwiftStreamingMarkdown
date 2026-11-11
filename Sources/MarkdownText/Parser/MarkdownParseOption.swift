@@ -44,6 +44,10 @@ public struct MarkdownParseOption {
   public enum LatexMatching: String, Hashable, CaseIterable {
     /// Inline LaTeX delimited by `\(` … `\)`.
     case inlineSlashBracket
+    /// Inline LaTeX delimited by `$` … `$` on one line. The opening `$` must
+    /// have a non-space to its right; the closing `$` a non-space to its left
+    /// and no digit to its right, so prices such as `$5 and $10` stay text.
+    case inlineDollar
     /// Block LaTeX delimited by `$$` … `$$`.
     case blockDollar
     /// Block LaTeX delimited by `\[` … `\]`.

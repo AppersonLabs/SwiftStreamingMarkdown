@@ -24,6 +24,11 @@ public struct ImageConfig: Hashable, Sendable {
     /// `![logo](https://example.com/logo.png)`.
     case remote(allowedDomains: [String])
 
+    /// Remote images loaded over `https` from any public host, as judged by
+    /// `ImageConfig.isPublicHost(_:)`. Use it for untrusted Markdown, where an
+    /// image must not make the device fetch from its own network.
+    case publicRemote
+
     /// Bundled images resolved from the app's asset catalog by name via
     /// `Image(_:)`.
     ///
@@ -71,6 +76,20 @@ public struct ImageConfig: Hashable, Sendable {
 
   /// Image support disabled.
   public static let disabled = ImageConfig(enabled: false)
+
+  /// Whether `host` is a name on the public internet: a dotted DNS name that
+  /// is neither an IP address nor under a suffix reserved for local or test
+  /// use.
+  public static func isPublicHost(_ host: String) -> Bool {
+    var name = host.lowercased()
+    if name.hasSuffix(".") { name.removeLast() }
+    guard name.contains("."), !name.contains(":"),
+      name.contains(where: { !$0.isNumber && $0 != "." }) else {
+      return false
+    }
+    let reserved = ["localhost", "local", "internal", "test", "invalid", "example", "home.arpa"]
+    return !reserved.contains { name == $0 || name.hasSuffix("." + $0) }
+  }
 
   /// Whether bundled asset-catalog images are permitted under this config.
   var allowsAssetCatalog: Bool {

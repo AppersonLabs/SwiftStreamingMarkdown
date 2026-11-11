@@ -161,11 +161,104 @@ final class LaTexPreProcessorImpl: LaTexPreProcessor {
 
   /// This wraps inline math as inline code to avoid over-unescaping issue
   func processInlineMath(input: String, rules: Set<MarkdownParseOption.LatexMatching>) -> String {
-    guard rules.contains(.inlineSlashBracket) else { return input }
-    return input.replacing(Self.inlineParenthesisMath, with: { match in
-      let latex = String(match[Self.latexRef]).filteringUnsupportedSyntaxes()
-      return "`\\(\(latex)\\)`"
-    })
+    var result = input
+    if rules.contains(.inlineSlashBracket) {
+      result = result.replacing(Self.inlineParenthesisMath, with: { match in
+        let latex = String(match[Self.latexRef]).filteringUnsupportedSyntaxes()
+        return "`\\(\(latex)\\)`"
+      })
+    }
+    // Runs last: it skips code spans, which is what the pass above leaves behind.
+    if rules.contains(.inlineDollar) {
+      result = Self.wrappingDollarMath(in: result)
+    }
+    return result
+  }
+
+  /// Wraps each `$…$` as inline code, as `processInlineMath` does for `\(…\)`.
+  /// Fenced blocks, code spans, escaped dollars and `$$` are left alone.
+  static func wrappingDollarMath(in input: String) -> String {
+    var fence: Substring?
+    let lines = input.split(separator: "\n", omittingEmptySubsequences: false).map { line -> String in
+      let marker = line.drop(while: { $0 == " " }).prefix(3)
+      if let open = fence {
+        if marker == open { fence = nil }
+        return String(line)
+      }
+      if marker == "```" || marker == "~~~" {
+        fence = marker
+        return String(line)
+      }
+      return wrappingDollarMath(inLine: Array(line))
+    }
+    return lines.joined(separator: "\n")
+  }
+
+  private static func wrappingDollarMath(inLine line: [Character]) -> String {
+    var result = ""
+    var index = 0
+    while index < line.count {
+      let character = line[index]
+      if character == "\\", index + 1 < line.count {
+        result += String(line[index...index + 1])
+        index += 2
+      } else if character == "`" {
+        let end = endOfCodeSpan(in: line, from: index)
+        result += String(line[index..<end])
+        index = end
+      } else if character == "$", index + 1 < line.count, line[index + 1] == "$" {
+        result += "$$"
+        index += 2
+      } else if character == "$", let close = closingDollar(in: line, after: index) {
+        let latex = String(line[index + 1..<close]).filteringUnsupportedSyntaxes()
+        result += "`\(inlineCodePrefix)\(latex)\(inlineCodeSuffix)`"
+        index = close + 1
+      } else {
+        result.append(character)
+        index += 1
+      }
+    }
+    return result
+  }
+
+  /// The index after the code span that opens at `start`, or after its opening
+  /// backticks alone when nothing closes them.
+  private static func endOfCodeSpan(in line: [Character], from start: Int) -> Int {
+    var open = start
+    while open < line.count, line[open] == "`" { open += 1 }
+    let width = open - start
+    var index = open
+    while index < line.count {
+      guard line[index] == "`" else {
+        index += 1
+        continue
+      }
+      var close = index
+      while close < line.count, line[close] == "`" { close += 1 }
+      if close - index == width { return close }
+      index = close
+    }
+    return open
+  }
+
+  private static func closingDollar(in line: [Character], after open: Int) -> Int? {
+    guard open + 1 < line.count, !line[open + 1].isWhitespace else { return nil }
+    var index = open + 2
+    while index < line.count {
+      let character = line[index]
+      if character == "`" { return nil }
+      let doubled = character == "$" && index + 1 < line.count && line[index + 1] == "$"
+      if character == "\\" || doubled {
+        index += 2
+        continue
+      }
+      let digitFollows = index + 1 < line.count && line[index + 1].isNumber
+      if character == "$", !line[index - 1].isWhitespace, !digitFollows {
+        return index
+      }
+      index += 1
+    }
+    return nil
   }
 
   // MARK: - Convenience overloads (default to every supported rule)
