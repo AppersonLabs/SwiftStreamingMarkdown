@@ -78,17 +78,53 @@ public struct ImageConfig: Hashable, Sendable {
   public static let disabled = ImageConfig(enabled: false)
 
   /// Whether `host` is a name on the public internet: a dotted DNS name that
-  /// is neither an IP address nor under a suffix reserved for local or test
-  /// use.
+  /// is neither an IP address in any spelling nor under a suffix reserved for
+  /// local or test use.
+  ///
+  /// URL parsers read a host whose last label is a number as IPv4, so
+  /// `0x7f.1`, `2130706433` and `017700000001` all reach 127.0.0.1. Any such
+  /// host is refused, as is anything outside letters, digits and hyphens.
+  /// A public name can still resolve to a private address; only resolving it
+  /// would tell.
   public static func isPublicHost(_ host: String) -> Bool {
     var name = host.lowercased()
     if name.hasSuffix(".") { name.removeLast() }
-    guard name.contains("."), !name.contains(":"),
-      name.contains(where: { !$0.isNumber && $0 != "." }) else {
+    let labels = name.split(separator: ".", omittingEmptySubsequences: false)
+    guard labels.count > 1, let last = labels.last,
+      labels.allSatisfy(isLabel), !isNumber(last), !isAddress(name) else {
       return false
     }
-    let reserved = ["localhost", "local", "internal", "test", "invalid", "example", "home.arpa"]
-    return !reserved.contains { name == $0 || name.hasSuffix("." + $0) }
+    return !reservedSuffixes.contains { name == $0 || name.hasSuffix("." + $0) }
+  }
+
+  /// Suffixes for loopback, link-local, private-network and test names
+  /// (RFC 2606, RFC 6761, RFC 6762, RFC 8375) and common intranet names.
+  private static let reservedSuffixes = [
+    "localhost", "local", "localdomain", "internal", "intranet", "lan", "home", "corp", "private",
+    "test", "invalid", "example", "arpa"
+  ]
+
+  /// A DNS label: letters, digits and inner hyphens. Characters beyond ASCII
+  /// pass so an internationalized name still reads as one.
+  private static func isLabel(_ label: Substring) -> Bool {
+    !label.isEmpty && label.count <= 63 && label.first != "-" && label.last != "-"
+      && label.unicodeScalars.allSatisfy { scalar in
+        !scalar.isASCII || ("a"..."z").contains(scalar) || ("0"..."9").contains(scalar) || scalar == "-"
+      }
+  }
+
+  /// Whether a URL parser would read `label`, as the last label of a host, as
+  /// an IPv4 part: decimal, octal or `0x` hex.
+  private static func isNumber(_ label: Substring) -> Bool {
+    if label.hasPrefix("0x") { return label.dropFirst(2).allSatisfy(\.isHexDigit) }
+    return label.allSatisfy(\.isASCII) && label.allSatisfy(\.isNumber)
+  }
+
+  /// Whether the system resolver would take `name` as a literal address.
+  private static func isAddress(_ name: String) -> Bool {
+    var v4 = in_addr()
+    var v6 = in6_addr()
+    return inet_aton(name, &v4) != 0 || inet_pton(AF_INET6, name, &v6) == 1
   }
 
   /// Whether bundled asset-catalog images are permitted under this config.

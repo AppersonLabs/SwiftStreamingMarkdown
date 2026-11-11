@@ -35,6 +35,7 @@ public struct DocumentView: View {
 
   public var body: some View {
     BlockView(renderables: renderableDocument.renderables)
+    .background(DocumentTapArea())
     .environment(\.markdownConfig, config)
     .environment(\.markdownController, controller)
     .task {

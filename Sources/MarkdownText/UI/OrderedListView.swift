@@ -27,13 +27,14 @@ struct OrderedListView: View {
                 .foregroundStyle(config.orderedListStyle.textColor)
                 .transition(.opacity)
             }
+            .documentTap()
           if let firstChild = items[idx].children.first {
             if case .paragraph(_, let contents) = firstChild {
               // Wrap the SingleBlockView to provide proper baseline alignment. This is to fix the mis-alignment when the view is rendered off-screen, e.g. snapshot.
               ListItemContentWrapper(paragraphContents: contents) {
                 SingleBlockView(renderable: firstChild)
               }
-              .accessibilityLabel(Text(markdownListAccessibilityLabel(for: contents.string, at: idx, length: items.count)))
+              .accessibilityLabel(Text(markdownListAccessibilityLabel(for: contents.plainText, at: idx, length: items.count)))
             } else {
               SingleBlockView(renderable: firstChild)
             }

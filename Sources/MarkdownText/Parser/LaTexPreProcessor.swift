@@ -132,6 +132,10 @@ final class LaTexPreProcessorImpl: LaTexPreProcessor {
 
   init() {}
 
+  /// Rewrites math in prose only. Each pass parses the Markdown it is given, so
+  /// code (fenced, indented, quoted or nested in a list), code spans, raw HTML,
+  /// link destinations and reference definitions keep their dollars and
+  /// backslashes.
   func process(input: String, matchingRules: [MarkdownParseOption.LatexMatching]) -> String {
     let rules = Set(matchingRules)
     let result = processBlockMath(input: input, rules: rules)
@@ -141,20 +145,11 @@ final class LaTexPreProcessorImpl: LaTexPreProcessor {
   /// This replace block math with a special code block node. By treating it as a code block it will avoid over escaping characters within latex.
   func processBlockMath(input: String, rules: Set<MarkdownParseOption.LatexMatching>) -> String {
     var result = input
-    if rules.contains(.blockDollar) {
-      result.replace(Self.dollarBlockMath, with: { match in
-        let indentation = match[Self.latexOpenIndentation]
-        let latex = match[Self.latexRef]
-        return Self.buildCodeBlock(indentation: indentation, latex: latex)
-      })
+    if rules.contains(.blockDollar), result.contains("$$") {
+      result = Self.replacingBlocks(Self.dollarBlockMath, in: result)
     }
-
-    if rules.contains(.blockSlashBracket) {
-      result.replace(Self.slashBracketMath, with: { match in
-        let indentation = match[Self.latexOpenIndentation]
-        let latex = match[Self.latexRef]
-        return Self.buildCodeBlock(indentation: indentation, latex: latex)
-      })
+    if rules.contains(.blockSlashBracket), result.contains("\\[") {
+      result = Self.replacingBlocks(Self.slashBracketMath, in: result)
     }
     return result
   }
@@ -162,103 +157,114 @@ final class LaTexPreProcessorImpl: LaTexPreProcessor {
   /// This wraps inline math as inline code to avoid over-unescaping issue
   func processInlineMath(input: String, rules: Set<MarkdownParseOption.LatexMatching>) -> String {
     var result = input
-    if rules.contains(.inlineSlashBracket) {
-      result = result.replacing(Self.inlineParenthesisMath, with: { match in
+    if rules.contains(.inlineSlashBracket), result.contains("\\(") {
+      let prose = Prose(result)
+      result = Self.replacing(Self.inlineParenthesisMath, in: result, where: prose.contains) { match in
         let latex = String(match[Self.latexRef]).filteringUnsupportedSyntaxes()
         return "`\\(\(latex)\\)`"
-      })
+      }
     }
-    // Runs last: it skips code spans, which is what the pass above leaves behind.
+    // Runs last: what the pass above wrote is code now, which this pass skips.
     if rules.contains(.inlineDollar) {
       result = Self.wrappingDollarMath(in: result)
     }
     return result
   }
 
-  /// Wraps each `$…$` as inline code, as `processInlineMath` does for `\(…\)`.
-  /// Fenced blocks, code spans, escaped dollars and `$$` are left alone.
+  /// Wraps each `$…$` in prose as inline code, as `processInlineMath` does for
+  /// `\(…\)`. Escaped dollars and `$$` are left alone.
   static func wrappingDollarMath(in input: String) -> String {
-    var fence: Substring?
-    let lines = input.split(separator: "\n", omittingEmptySubsequences: false).map { line -> String in
-      let marker = line.drop(while: { $0 == " " }).prefix(3)
-      if let open = fence {
-        if marker == open { fence = nil }
-        return String(line)
-      }
-      if marker == "```" || marker == "~~~" {
-        fence = marker
-        return String(line)
-      }
-      return wrappingDollarMath(inLine: Array(line))
-    }
-    return lines.joined(separator: "\n")
-  }
-
-  private static func wrappingDollarMath(inLine line: [Character]) -> String {
+    guard input.contains("$") else { return input }
+    let prose = Prose(input)
     var result = ""
-    var index = 0
-    while index < line.count {
-      let character = line[index]
-      if character == "\\", index + 1 < line.count {
-        result += String(line[index...index + 1])
-        index += 2
-      } else if character == "`" {
-        let end = endOfCodeSpan(in: line, from: index)
-        result += String(line[index..<end])
-        index = end
-      } else if character == "$", index + 1 < line.count, line[index + 1] == "$" {
-        result += "$$"
-        index += 2
-      } else if character == "$", let close = closingDollar(in: line, after: index) {
-        let latex = String(line[index + 1..<close]).filteringUnsupportedSyntaxes()
+    var index = input.startIndex
+    while index < input.endIndex {
+      let character = input[index]
+      let next = input.index(after: index)
+      if !prose.contains(index) || next == input.endIndex {
+        result.append(character)
+        index = next
+      } else if character == "\\" || (character == "$" && input[next] == "$") {
+        result += input[index...next]
+        index = input.index(after: next)
+      } else if character == "$", let close = closingDollar(in: input, after: index, prose: prose) {
+        let latex = String(input[next..<close]).filteringUnsupportedSyntaxes()
         result += "`\(inlineCodePrefix)\(latex)\(inlineCodeSuffix)`"
-        index = close + 1
+        index = input.index(after: close)
       } else {
         result.append(character)
-        index += 1
+        index = next
       }
     }
     return result
   }
 
-  /// The index after the code span that opens at `start`, or after its opening
-  /// backticks alone when nothing closes them.
-  private static func endOfCodeSpan(in line: [Character], from start: Int) -> Int {
-    var open = start
-    while open < line.count, line[open] == "`" { open += 1 }
-    let width = open - start
-    var index = open
-    while index < line.count {
-      guard line[index] == "`" else {
-        index += 1
+  /// The closing `$` on the same line, within prose: a non-space to its left and
+  /// no digit to its right, so prices such as `$5 and $10` stay text.
+  private static func closingDollar(in input: String, after open: String.Index, prose: Prose) -> String.Index? {
+    let first = input.index(after: open)
+    guard first < input.endIndex, !input[first].isWhitespace, prose.contains(first) else { return nil }
+    var previous = first
+    var index = input.index(after: first)
+    while index < input.endIndex, prose.contains(index) {
+      let character = input[index]
+      if character == "\n" || character == "`" { return nil }
+      let next = input.index(after: index)
+      if character == "\\" || (character == "$" && next < input.endIndex && input[next] == "$") {
+        guard next < input.endIndex else { return nil }
+        previous = next
+        index = input.index(after: next)
         continue
       }
-      var close = index
-      while close < line.count, line[close] == "`" { close += 1 }
-      if close - index == width { return close }
-      index = close
-    }
-    return open
-  }
-
-  private static func closingDollar(in line: [Character], after open: Int) -> Int? {
-    guard open + 1 < line.count, !line[open + 1].isWhitespace else { return nil }
-    var index = open + 2
-    while index < line.count {
-      let character = line[index]
-      if character == "`" { return nil }
-      let doubled = character == "$" && index + 1 < line.count && line[index + 1] == "$"
-      if character == "\\" || doubled {
-        index += 2
-        continue
-      }
-      let digitFollows = index + 1 < line.count && line[index + 1].isNumber
-      if character == "$", !line[index - 1].isWhitespace, !digitFollows {
+      let digitFollows = next < input.endIndex && input[next].isNumber
+      if character == "$", !input[previous].isWhitespace, !digitFollows {
         return index
       }
-      index += 1
+      previous = index
+      index = next
     }
     return nil
+  }
+
+  /// Replaces each block of math whose opening and closing delimiters are
+  /// prose. The lines between are not checked: Markdown may read one of them as
+  /// a list item or heading.
+  private static func replacingBlocks(_ pattern: Regex<(Substring, Substring, Substring)>, in input: String) -> String {
+    let prose = Prose(input)
+    return replacing(pattern, in: input, where: { range in
+      let text = input[range]
+      guard let open = text.firstIndex(where: { !$0.isWhitespace }),
+        let close = text.lastIndex(where: { !$0.isWhitespace }) else { return false }
+      return prose.contains(open) && prose.contains(close)
+    }) { match in
+      buildCodeBlock(indentation: match[latexOpenIndentation], latex: match[latexRef])
+    }
+  }
+
+  /// Replaces the matches of `pattern` that `allowed` accepts. A refused match
+  /// gives up only its first character, so a match that starts inside code
+  /// cannot swallow math that follows it.
+  private static func replacing<Output>(
+    _ pattern: Regex<Output>,
+    in input: String,
+    where allowed: (Range<String.Index>) -> Bool,
+    with replacement: (Regex<Output>.Match) -> String
+  ) -> String {
+    var result = ""
+    var copied = input.startIndex
+    var search = input.startIndex
+    while search < input.endIndex, let match = input[search...].firstMatch(of: pattern) {
+      if allowed(match.range) {
+        result += input[copied..<match.range.lowerBound]
+        result += replacement(match)
+        copied = match.range.upperBound
+        search = match.range.upperBound
+      } else {
+        search = input.index(after: match.range.lowerBound)
+      }
+    }
+    result += input[copied...]
+    return result
   }
 
   // MARK: - Convenience overloads (default to every supported rule)

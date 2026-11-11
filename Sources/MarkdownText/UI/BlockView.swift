@@ -54,25 +54,31 @@ struct SingleBlockView: View {
             Spacer()
           }
         }.scrollIndicators(.hidden)
+        .documentTap()
       case .orderedList(_, let items, let start):
         OrderedListView(items: items, start: start)
       case .unorderedList(_, let items, let nestedLevel):
         UnorderedListView(items: items, nestedLevel: nestedLevel)
       case .codeBlock(_, let language, let code):
-        if let custom = customCodeBlock?.view(language: language ?? "", code: code) {
-          custom
-        } else {
-          CodeBlockView(language: language ?? "",
-                        code: code)
+        Group {
+          if let custom = customCodeBlock?.view(language: language ?? "", code: code) {
+            custom
+          } else {
+            CodeBlockView(language: language ?? "",
+                          code: code)
+          }
         }
+        .documentTap()
       case .thematicBreak:
         ThematicBreakView()
+          .documentTap()
       case .table(_, let headers, let rows, let rawMarkdown):
         TableView(headings: headers,
                   rows: rows,
                   rawMarkdown: rawMarkdown)
       case .blockQuote(_, let item):
         BlockQuoteView(item: item)
+          .documentTap()
       case .image(let id, let data):
         BlockImageView(data: data)
           .id(id)

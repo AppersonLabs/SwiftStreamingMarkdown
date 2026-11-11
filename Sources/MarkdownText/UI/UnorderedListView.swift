@@ -16,13 +16,14 @@ struct UnorderedListView: View {
       ForEach(0..<items.count, id: \.self) { idx in
         HStack(alignment: .centerOfFirstLine, spacing: 1) {
           bulletView(forListItem: items[idx])
+            .documentTap()
           if let firstChild = items[idx].children.first {
             if case .paragraph(_, let contents) = firstChild {
               // Wrap the SingleBlockView to provide proper baseline alignment
               ListItemContentWrapper(paragraphContents: contents) {
                 SingleBlockView(renderable: firstChild)
               }
-              .accessibilityLabel(Text(listItemAccessibilityLabel(for: contents.string, at: idx, checkbox: items[idx].checkbox)))
+              .accessibilityLabel(Text(listItemAccessibilityLabel(for: contents.plainText, at: idx, checkbox: items[idx].checkbox)))
             } else {
               SingleBlockView(renderable: firstChild)
             }

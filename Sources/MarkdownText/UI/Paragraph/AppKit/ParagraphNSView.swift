@@ -30,9 +30,9 @@ class ParagraphNSView: NSTextView {
 
   var onUrlTap: (URL) -> Void = { NSWorkspace.shared.open($0) }
 
-  /// Called when a click lands on prose rather than on a link, an attachment
-  /// or a text selection.
-  var onTap: (() -> Void)?
+  /// Handles a click on prose rather than on a link or an attachment. The
+  /// document's `MarkdownController` decides whether it runs.
+  var onTap: (any MarkdownTaps)?
 
   convenience init() {
     let textStorage = NSTextStorage()
@@ -208,6 +208,34 @@ class ParagraphNSView: NSTextView {
     setContentCompressionResistancePriority(.defaultHigh, for: .vertical)
     setContentHuggingPriority(.defaultLow, for: .horizontal)
     setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+
+    NotificationCenter.default.addObserver(self, selector: #selector(attachmentChanged(_:)), name: .markdownAttachmentChanged, object: nil)
+  }
+
+  @objc private func attachmentChanged(_ notification: Notification) {
+    guard let attachment = notification.object as? NSTextAttachment, textStorage?.redraw(attachment) == true else { return }
+    needsDisplay = true
+  }
+
+  // MARK: - Copying
+
+  /// Copies and drags the words without decorations such as link icons.
+  override func writeSelection(to pboard: NSPasteboard, type: NSPasteboard.PasteboardType) -> Bool {
+    guard let textStorage, textStorage.hasDecoration(in: selectedRange()) else {
+      return super.writeSelection(to: pboard, type: type)
+    }
+    let selection = textStorage.withoutDecorations(in: selectedRange())
+    let range = NSRange(location: 0, length: selection.length)
+    switch type {
+    case .string:
+      return pboard.setString(selection.string, forType: .string)
+    case .rtf:
+      return selection.rtf(from: range).map { pboard.setData($0, forType: .rtf) } ?? false
+    case .rtfd:
+      return selection.rtfd(from: range).map { pboard.setData($0, forType: .rtfd) } ?? false
+    default:
+      return false
+    }
   }
 
   // MARK: - Accessibility
@@ -222,7 +250,7 @@ class ParagraphNSView: NSTextView {
          let citationData = attachment.citationData {
         labelComponents.append(citationData.accessibilityLabel)
         hasAttachments = true
-      } else {
+      } else if attrs[.markdownDecoration] == nil {
         let text = attributedString.attributedSubstring(from: range).string
         if !text.isEmpty {
           labelComponents.append(text)
@@ -239,7 +267,7 @@ class ParagraphNSView: NSTextView {
     if let content = generateAccessibilityContent(from: attributedString) {
       setAccessibilityLabel(content.label)
     } else {
-      setAccessibilityLabel(attributedString.string)
+      setAccessibilityLabel(attributedString.plainText)
     }
   }
 
@@ -319,6 +347,8 @@ class ParagraphNSView: NSTextView {
   }
 
   func setMarkdownController(_ controller: MarkdownController?) {
+    guard controller !== markdownController else { return }
+    clearSelection()
     markdownController = controller
   }
 
@@ -336,14 +366,19 @@ class ParagraphNSView: NSTextView {
   // MARK: - Prose Clicks
 
   override func mouseDown(with event: NSEvent) {
-    let beganOnSelection = selectedRange().length > 0
+    let wasSelected = hasSelection || markdownController?.hasSelection == true
     // Returns once the mouse is up: the text view tracks the drag itself.
     super.mouseDown(with: event)
-    guard let onTap, event.clickCount == 1, !beganOnSelection, selectedRange().length == 0,
+    guard event.clickCount == 1, !hasSelection,
       !isInteractive(at: convert(event.locationInWindow, from: nil)) else {
       return
     }
-    onTap()
+    markdownController?.tap(onTap, wasSelected: wasSelected)
+  }
+
+  override func setSelectedRanges(_ ranges: [NSValue], affinity: NSSelectionAffinity, stillSelecting: Bool) {
+    super.setSelectedRanges(ranges, affinity: affinity, stillSelecting: stillSelecting)
+    markdownController?.select(self)
   }
 
   /// Whether a link or an attachment sits on either side of `point`.
@@ -364,9 +399,7 @@ class ParagraphNSView: NSTextView {
       return super.menu(for: event)
     }
 
-    let selectedRange = self.selectedRange()
-    let clampedRange = NSIntersectionRange(selectedRange, NSRange(location: 0, length: textStorage.length))
-    let selectedText = textStorage.attributedSubstring(from: clampedRange).string
+    let selectedText = textStorage.plainText(in: selectedRange())
 
     // Start from the native context menu so system items (Copy, Look Up,
     // Translate, Share, Services, …) are preserved, then inject the configured
@@ -432,6 +465,15 @@ class ParagraphNSView: NSTextView {
   @objc private func contextMenuItemTapped(_ sender: NSMenuItem) {
     guard let action = sender.representedObject as? ContextMenuAction else { return }
     markdownController?.onContextMenuTap(id: action.id, selectedContent: action.selectedText)
+  }
+}
+
+extension ParagraphNSView: ProseSelection {
+  var hasSelection: Bool { selectedRange().length > 0 }
+
+  func clearSelection() {
+    guard hasSelection else { return }
+    setSelectedRange(NSRange(location: selectedRange().location, length: 0))
   }
 }
 

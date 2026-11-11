@@ -83,7 +83,7 @@ extension MarkdownRenderable {
   var plainText: String? {
     switch self {
     case .paragraph(_, let content), .heading(_, _, let content):
-      return content.string
+      return content.plainText
     case .latex(_, let content):
       return content
     case .orderedList(_, let items, _):
@@ -93,8 +93,8 @@ extension MarkdownRenderable {
     case .codeBlock(_, _, let code):
       return code
     case .table(_, let headers, let rows, _):
-      let headerLine = headers.map { $0.string }.joined(separator: "\t")
-      let rowLines = rows.map { row in row.map { $0.string }.joined(separator: "\t") }
+      let headerLine = headers.map(\.plainText).joined(separator: "\t")
+      let rowLines = rows.map { row in row.map(\.plainText).joined(separator: "\t") }
       return ([headerLine] + rowLines).joined(separator: "\n")
     case .blockQuote(_, let item):
       return item.quoteType.plainText

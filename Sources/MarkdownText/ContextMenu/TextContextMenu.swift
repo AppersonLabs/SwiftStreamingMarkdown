@@ -32,8 +32,7 @@ public struct TextContextMenu: Hashable, Sendable {
   public func buildUIMenu(textView: UITextView, selectedRange: NSRange, suggestedActions: [UIMenuElement], markdownController: MarkdownController?) -> UIMenu {
     var customMenu: [UIMenu] = []
 
-    let clampedRange = NSIntersectionRange(selectedRange, NSRange(location: 0, length: textView.attributedText.length))
-    let selectedText = textView.attributedText.attributedSubstring(from: clampedRange).string
+    let selectedText = textView.attributedText.plainText(in: selectedRange)
     for group in menuGroups {
       var groupActions: [UIAction] = []
       for item in group.items {

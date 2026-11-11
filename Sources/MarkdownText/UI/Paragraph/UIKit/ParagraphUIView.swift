@@ -35,9 +35,9 @@ class ParagraphUIView: UITextView {
   // To override the behaviour of this property, do so on ParagraphView's SwiftUI wrapper.
   var onUrlTap: (URL) -> Void = { UIApplication.shared.open($0) }
 
-  /// Called when a tap lands on prose rather than on a link, an attachment or
-  /// a text selection.
-  var onTap: (() -> Void)?
+  /// Handles a tap on prose rather than on a link or an attachment. The
+  /// document's `MarkdownController` decides whether it runs.
+  var onTap: (any MarkdownTaps)?
   private let proseTap = ProseTap()
 
   override init(frame: CGRect, textContainer: NSTextContainer?) {
@@ -62,6 +62,7 @@ class ParagraphUIView: UITextView {
     // Fix for crash: "UIPreviewTarget requires that the container view is in a window". When the view is removed from the window (e.g. scrolled out in LazyVStack), we should clear the selection to prevent any pending menu or drag interactions from trying to reference the detached view.
     if newWindow == nil {
       selectedTextRange = nil
+      markdownController?.select(self)
     }
   }
 
@@ -69,6 +70,7 @@ class ParagraphUIView: UITextView {
     let result = super.resignFirstResponder()
     if result {
       selectedTextRange = nil
+      markdownController?.select(self)
     }
     return result
   }
@@ -211,14 +213,35 @@ class ParagraphUIView: UITextView {
     tap.cancelsTouchesInView = false
     tap.delegate = proseTap
     addGestureRecognizer(tap)
+
+    NotificationCenter.default.addObserver(self, selector: #selector(attachmentChanged(_:)), name: .markdownAttachmentChanged, object: nil)
+  }
+
+  @objc private func attachmentChanged(_ notification: Notification) {
+    guard let attachment = notification.object as? NSTextAttachment, textStorage.redraw(attachment) else { return }
+    setNeedsDisplay()
+  }
+
+  /// Copies the words without decorations such as link icons.
+  override func copy(_ sender: Any?) {
+    guard textStorage.hasDecoration(in: selectedRange) else {
+      super.copy(sender)
+      return
+    }
+    let selection = textStorage.withoutDecorations(in: selectedRange)
+    var item: [String: Any] = [UTType.utf8PlainText.identifier: selection.string]
+    if let rtf = try? selection.data(
+      from: NSRange(location: 0, length: selection.length),
+      documentAttributes: [.documentType: NSAttributedString.DocumentType.rtf]
+    ) {
+      item[UTType.rtf.identifier] = rtf
+    }
+    UIPasteboard.general.setItems([item])
   }
 
   @objc private func handleProseTap(_ recognizer: UITapGestureRecognizer) {
-    guard let onTap, !proseTap.beganOnSelection, selectedRange.length == 0,
-      !isInteractive(at: recognizer.location(in: self)) else {
-      return
-    }
-    onTap()
+    guard !hasSelection, !isInteractive(at: recognizer.location(in: self)) else { return }
+    markdownController?.tap(onTap, wasSelected: proseTap.beganOnSelection)
   }
 
   /// Whether a link or an attachment sits on either side of `point`.
@@ -258,7 +281,7 @@ class ParagraphUIView: UITextView {
         let actionName = String.openCitation(citationLabel: citationData.accessibilityLabel)
         let action = makeAccessibilityAction(name: actionName, url: citationData.url)
         actions.append(action)
-      } else {
+      } else if attrs[.markdownDecoration] == nil {
         // Add the regular text for this range
         let substring = attributedString.attributedSubstring(from: range)
         let text = substring.string
@@ -285,7 +308,7 @@ class ParagraphUIView: UITextView {
       accessibilityCustomActions = accessibilityContent.actions
     } else {
       // No citations found, just use the plain text
-      accessibilityLabel = attributedString.string
+      accessibilityLabel = attributedString.plainText
       accessibilityCustomActions = nil
     }
   }
@@ -364,12 +387,27 @@ class ParagraphUIView: UITextView {
   }
 
   func setMarkdownController(_ controller: MarkdownController?) {
+    guard controller !== markdownController else { return }
+    clearSelection()
     markdownController = controller
+  }
+}
+
+extension ParagraphUIView: ProseSelection {
+  var hasSelection: Bool { selectedRange.length > 0 }
+
+  func clearSelection() {
+    guard hasSelection else { return }
+    selectedTextRange = nil
   }
 }
 
 // MARK: - UITextViewDelegate
 extension ParagraphUIView: UITextViewDelegate {
+  func textViewDidChangeSelection(_ textView: UITextView) {
+    markdownController?.select(self)
+  }
+
   func textView(_ textView: UITextView, shouldInteractWith URL: URL, in characterRange: NSRange, interaction: UITextItemInteraction) -> Bool {
     self.onUrlTap(URL)
     return false
@@ -398,8 +436,7 @@ extension ParagraphUIView: UITextViewDelegate {
 
   func textView(_ textView: UITextView, willPresentEditMenuWith animator: any UIEditMenuInteractionAnimating) {
     guard let textContextMenu, let markdownController else { return }
-    let clampedRange = NSIntersectionRange(textView.selectedRange, NSRange(location: 0, length: textView.attributedText.length))
-    let selectedText = textView.attributedText.attributedSubstring(from: clampedRange).string
+    let selectedText = textView.attributedText.plainText(in: textView.selectedRange)
     for group in textContextMenu.menuGroups {
       for item in group.items where item.id != TextSelectionConfig.selectMoreItemID {
         markdownController.onContextMenuAppear(id: item.id, selectedContent: selectedText)
@@ -409,13 +446,15 @@ extension ParagraphUIView: UITextViewDelegate {
 }
 
 /// Lets the prose tap run beside the text view's own gestures, and remembers
-/// whether the touch began with text selected: by the time the tap fires, the
-/// text view has already cleared the selection that the tap dismissed.
+/// whether the touch began with text selected anywhere in the document: by
+/// the time the tap fires, the text view has already cleared the selection
+/// that the tap dismissed.
 private final class ProseTap: NSObject, UIGestureRecognizerDelegate {
   private(set) var beganOnSelection = false
 
   func gestureRecognizer(_ gestureRecognizer: UIGestureRecognizer, shouldReceive touch: UITouch) -> Bool {
-    beganOnSelection = ((gestureRecognizer.view as? UITextView)?.selectedRange.length ?? 0) > 0
+    let view = gestureRecognizer.view as? ParagraphUIView
+    beganOnSelection = view?.hasSelection == true || view?.markdownController?.hasSelection == true
     return true
   }
 

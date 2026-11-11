@@ -43,9 +43,40 @@ public final class MarkdownController: ObservableObject {
     self.listener = listener
   }
 
+  /// Prose views with text selected, held weakly.
+  private let selections = NSHashTable<AnyObject>.weakObjects()
+
   /// Request presentation of the full-document text selection modal.
   func requestTextSelection() {
     isTextSelectionRequested = true
+  }
+
+  /// Whether a listener receives table actions; without one a tap on a table is
+  /// a tap on the document.
+  var hasListener: Bool { listener != nil }
+
+  // MARK: - Taps
+
+  /// Whether any prose in the document has text selected.
+  @MainActor var hasSelection: Bool {
+    selections.allObjects.contains { ($0 as? ProseSelection)?.hasSelection == true }
+  }
+
+  /// Records that `view` gained or lost a selection.
+  @MainActor func select(_ view: ProseSelection) {
+    if view.hasSelection { selections.add(view) } else { selections.remove(view) }
+  }
+
+  /// Handles a tap anywhere in the document. A tap while text is selected
+  /// only clears the selection, as it does on a web page.
+  /// - Parameter wasSelected: Whether text was selected when the touch began.
+  ///   A native text view clears its own selection before the tap ends, so it
+  ///   reads this first.
+  @MainActor func tap(_ action: (any MarkdownTaps)?, wasSelected: Bool = false) {
+    let selected = wasSelected || hasSelection
+    for case let view as ProseSelection in selections.allObjects { view.clearSelection() }
+    selections.removeAllObjects()
+    if !selected { action?() }
   }
 
   func onAppear(markdown: RenderableDocument) async {

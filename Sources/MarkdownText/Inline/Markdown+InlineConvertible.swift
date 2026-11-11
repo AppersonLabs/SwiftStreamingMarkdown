@@ -128,7 +128,7 @@ extension Markdown.Link: InlineConvertible {
       let text = buildAttributedString()
       if text.length > 0, let icon = config.linkConfig.icon(url) {
         let iconString = NSMutableAttributedString(attachment: icon)
-        iconString.addAttribute(.link, value: url, range: NSRange(location: 0, length: iconString.length))
+        iconString.addAttributes([.link: url, .markdownDecoration: true], range: NSRange(location: 0, length: iconString.length))
         text.insert(iconString, at: 0)
       }
       return text

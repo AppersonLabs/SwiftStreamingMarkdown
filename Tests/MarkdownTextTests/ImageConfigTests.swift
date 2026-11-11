@@ -116,4 +116,37 @@ final class ImageConfigTests: XCTestCase {
     XCTAssertTrue(ImageConfig.isPublicHost("Example.COM."))
     XCTAssertFalse(ImageConfig.isPublicHost("Router.Home.Arpa"))
   }
+
+  func test_isPublicHost_refuses_every_spelling_of_an_address() {
+    for host in [
+      "127.0.0.1", "0x7f.0.0.1", "0x7f.1", "0X7F.1", "0xc0.0xa8.1.1", "0300.0250.1.1",
+      "2130706433", "017700000001", "0x7f000001", "127.1", "1.2.3.4.5", "foo.0x7f", "foo.123",
+      "foo.0x", "::1", "[::1]", "::ffff:127.0.0.1", "fe80::1%en0", "169.254.169.254"
+    ] {
+      XCTAssertFalse(ImageConfig.isPublicHost(host), host)
+    }
+  }
+
+  func test_isPublicHost_refuses_reserved_and_malformed_names() {
+    for host in [
+      "localhost", "intranet", "a.localhost", "printer.local", "x.localdomain", "build.internal",
+      "nas.lan", "foo.test", "foo.invalid", "foo.example", "1.0.0.127.in-addr.arpa", "router.home.arpa",
+      "a..com", ".com", "-a.com", "a-.com", "a_b.com", "127%2e0%2e0%2e1", "a b.com", ""
+    ] {
+      XCTAssertFalse(ImageConfig.isPublicHost(host), host)
+    }
+  }
+
+  func test_isPublicHost_allows_public_names() {
+    for host in ["example.com", "cdn.example.com", "1password.com", "123.example.com", "a-b.co.uk", "xn--mnchen-3ya.de", "münchen.de"] {
+      XCTAssertTrue(ImageConfig.isPublicHost(host), host)
+    }
+  }
+
+  func test_publicRemote_refuses_numeric_hosts_in_urls() {
+    let config = ImageConfig(enabled: true, allowedImageTypes: [.publicRemote])
+    for source in ["https://0x7f.0.0.1/a", "https://0x7f.1/a", "https://0xc0.0xa8.1.1/a", "https://017700000001/a", "https://2130706433/a"] {
+      XCTAssertNil(config.resolvedSource(for: source), source)
+    }
+  }
 }

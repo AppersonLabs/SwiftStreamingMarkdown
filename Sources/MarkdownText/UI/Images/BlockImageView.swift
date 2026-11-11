@@ -61,7 +61,7 @@ struct BlockImageView: View {
 
   @ViewBuilder
   private func remoteImage(url: URL) -> some View {
-    AsyncImage(url: url) { phase in
+    RemoteImage(url: url) { phase in
       switch phase {
       case .success(let image):
         image

@@ -347,4 +347,69 @@ final class LaTexPreProcessorTests: XCTestCase {
       input
     )
   }
+
+  // MARK: - Math only in prose
+
+  func testDollarsInCodeStayUntouched() {
+    for input in [
+      "Indented:\n\n    x = $a+$b\n    $$y$$",
+      "> ```\n> cost $a+$b\n> ```",
+      "> ~~~\n> $$x$$\n> ~~~",
+      "- item\n\n  ```sh\n  echo $a+$b\n  ```",
+      "1. step\n\n       echo $a+$b",
+      "Run `echo $a+$b` now",
+      "Run ``a ` $x$ ` b`` now",
+      "```\n\\(x\\) and \\[y\\]\n```"
+    ] {
+      XCTAssertEqual(preprocessor.process(input: input), input, input)
+    }
+  }
+
+  func testDollarsInLinksStayUntouched() {
+    for input in [
+      "[x](https://e.com/?a=$b&c=$d)",
+      "[orders](https://api.e.com/orders?$filter=a&$top=5) and $x$",
+      "![chart](https://e.com/c.png?$w=$h)",
+      "<https://e.com/?a=$b&c=$d>",
+      "See https://e.com/?a=$b&c=$d today",
+      "[x][ref]\n\n[ref]: https://e.com/?a=$b&c=$d",
+      "[ref]: https://e.com/?$a=$b\n\nText"
+    ] {
+      let expected = input.replacingOccurrences(of: "and $x$", with: "and `\\(x\\)`")
+      XCTAssertEqual(preprocessor.process(input: input), expected, input)
+    }
+  }
+
+  func testDollarsInRawHTMLStayUntouched() {
+    let input = "<span title=\"$a$\">x</span>\n\n<div>\n$b$\n</div>"
+    XCTAssertEqual(preprocessor.process(input: input), input)
+  }
+
+  func testMathInProseStillRenders() {
+    XCTAssertEqual(
+      preprocessor.process(input: "> Quote $x$ and\n- item $y_1$\n\n| a |\n| - |\n| $z$ |\n\n# Head $h$"),
+      "> Quote `\\(x\\)` and\n- item `\\(y_1\\)`\n\n| a |\n| - |\n| `\\(z\\)` |\n\n# Head `\\(h\\)`"
+    )
+    XCTAssertEqual(
+      preprocessor.process(input: "[cost $a$](https://e.com/?q=$b) and \\(c\\)"),
+      "[cost `\\(a\\)`](https://e.com/?q=$b) and `\\(c\\)`"
+    )
+  }
+
+  func testEscapedAndCurrencyDollarsStayText() {
+    for input in ["Paid \\$5 and \\$x\\$ here", "Costs $5, $10 or $1.50.", "US$5 and $ 6"] {
+      XCTAssertEqual(preprocessor.process(input: input), input, input)
+    }
+  }
+
+  func testBlockMathOnlyOutsideCode() {
+    let input = "```\n$$a$$\n```\n$$b$$\n\n    $$c$$\n\n\\[\nd\n\\]"
+    let expected = "```\n$$a$$\n```\n```blockmath\nb\n```\n\n    $$c$$\n\n```blockmath\nd\n```"
+    XCTAssertEqual(preprocessor.process(input: input), expected)
+  }
+
+  func testCodeBeforeMathDoesNotSwallowIt() {
+    let input = "    $$ code\n\n$$x$$"
+    XCTAssertEqual(preprocessor.process(input: input), "    $$ code\n\n```blockmath\nx\n```")
+  }
 }

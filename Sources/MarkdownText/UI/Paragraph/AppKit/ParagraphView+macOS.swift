@@ -27,7 +27,7 @@ struct ParagraphView: NSViewRepresentable {
     // paragraph gets its own view instead.
     let view = ParagraphNSView()
     view.onUrlTap = openUrlFunction
-    view.onTap = onTap.map { tap in { tap() } }
+    view.onTap = onTap
     view.setParagraphContents(contents, lineSpacing: lineSpacing, animatedByWord: false)
     view.setTextContextMenu(config.resolvedTextContextMenu)
     view.setMarkdownController(markdownController)
@@ -50,7 +50,7 @@ struct ParagraphView: NSViewRepresentable {
     }
     view.setTextContextMenu(config.resolvedTextContextMenu)
     view.setMarkdownController(markdownController)
-    view.onTap = onTap.map { tap in { tap() } }
+    view.onTap = onTap
   }
 
   func sizeThatFits(_ proposal: ProposedViewSize, nsView: ParagraphNSView, context: Context) -> CGSize? {

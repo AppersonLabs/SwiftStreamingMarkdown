@@ -66,6 +66,7 @@ struct TableView: View {
       Spacer()
     }
     .padding(12)
+    .documentTap()
     .id("\(colIdx)-heading")
     .background(config.tableStyle.headerBackgroundColor)
     .applyHeaderBorder(colIndex: colIdx, colCount: headings.count, color: config.tableStyle.borderColor)
@@ -112,6 +113,7 @@ struct TableView: View {
       }
       .frame(maxHeight: .infinity)
       .padding(12)
+      .background(DocumentTapArea())
       .id("\(colIdx)-\(rowIdx)")
       .applyCellBorder(colIndex: colIdx, colCount: headings.count, rowIndex: rowIdx, rowCount: numOfRows, color: config.tableStyle.borderColor)
     case .text(let attributedString):
@@ -129,6 +131,7 @@ struct TableView: View {
       }
       .frame(maxHeight: .infinity)
       .padding(12)
+      .documentTap()
       .id("\(colIdx)-\(rowIdx)")
       .applyCellBorder(colIndex: colIdx, colCount: headings.count, rowIndex: rowIdx, rowCount: numOfRows, color: config.tableStyle.borderColor)
     }
@@ -136,7 +139,7 @@ struct TableView: View {
 
   var body: some View {
     VStack(alignment: .leading, spacing: 0) {
-      if controller != nil {
+      if controller?.hasListener == true {
         scrollView.onTapGesture {
           withAnimation(.easeInOut(duration: 0.2)) {
             isExpanded.toggle()

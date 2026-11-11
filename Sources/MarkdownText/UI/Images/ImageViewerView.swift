@@ -61,7 +61,7 @@ struct ImageViewerView: View {
   private var zoomableImage: some View {
     switch source {
     case .remote(let url):
-      AsyncImage(url: url) { phase in
+      RemoteImage(url: url) { phase in
         switch phase {
         case .success(let image):
           PinchZoomView(image: image, onSwipeToDismiss: onDismiss)
