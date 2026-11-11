@@ -18,6 +18,11 @@ extension BlockQuote: BlockConvertible {
         finalQuoteTypes.append(.text(inlineContainer.extractPlainText(removeHeading: false)))
       } else if let blockQuoteContainer = child as? BlockQuote {
         finalQuoteTypes.append(blockQuoteContainer.quoteTypes)
+      } else if let code = child as? CodeBlock {
+        // A quote draws text only; code keeps its characters rather than vanishing.
+        finalQuoteTypes.append(.text(code.code.trimmingCharacters(in: .newlines)))
+      } else {
+        finalQuoteTypes.append(.text(child.format().trimmingCharacters(in: .whitespacesAndNewlines)))
       }
     }
 

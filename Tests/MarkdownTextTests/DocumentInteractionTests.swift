@@ -46,6 +46,12 @@ final class DocumentInteractionTests: XCTestCase {
     XCTAssertTrue(text.contains("home\tok"))
   }
 
+  func test_quotedCode_keepsItsText() async {
+    let text = await document("> ```\n> cost $a+$b\n> ```\n>\n> - item $5").plainText
+    XCTAssertTrue(text.contains("cost $a+$b"), text)
+    XCTAssertTrue(text.contains("item $5"), text)
+  }
+
   func test_linkIcon_isMarkedDecorationAndStillOpensTheLink() async {
     guard case .paragraph(_, let content) = await document("see [docs](https://example.com)").renderables.first else {
       return XCTFail("Expected a paragraph")
