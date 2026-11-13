@@ -23,6 +23,7 @@ class ParagraphNSView: NSTextView {
   private(set) var lineSpacing: CGFloat?
   private var activeAnimations: [FadeAnimationData] = []
   private var fadeAnimationDisplayLink: CADisplayLink?
+  private var lastWidth: CGFloat?
   private var cachedSize: CachedParagraphNSViewSize?
 
   var textContextMenu: TextContextMenu?
@@ -70,14 +71,13 @@ class ParagraphNSView: NSTextView {
   // MARK: - Intrinsic Content Size
 
   override var intrinsicContentSize: NSSize {
-    if let cachedSize {
+    let targetWidth = bounds.width
+    guard targetWidth > 0, targetWidth.isFinite else {
+      return CGSize(width: NSView.noIntrinsicMetric, height: NSView.noIntrinsicMetric)
+    }
+    if let cachedSize, cachedSize.targetWidth == targetWidth {
       return cachedSize.size
     }
-    var targetWidth = bounds.width
-    if targetWidth <= 0 || targetWidth.isInfinite {
-      targetWidth = NSScreen.main?.frame.width ?? 800
-    }
-
     let measuredSize = measureSize(fittingWidth: targetWidth)
     cachedSize = CachedParagraphNSViewSize(size: measuredSize, targetWidth: targetWidth)
     return measuredSize
@@ -110,9 +110,9 @@ class ParagraphNSView: NSTextView {
 
   override func layout() {
     super.layout()
-    if bounds.width != cachedSize?.targetWidth {
-      invalidateCachedSize()
-    }
+    guard lastWidth != bounds.width else { return }
+    lastWidth = bounds.width
+    invalidateCachedSize()
     invalidateIntrinsicContentSize()
   }
 
