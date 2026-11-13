@@ -27,6 +27,7 @@ class ParagraphUIView: UITextView {
   private(set) var lineSpacing: CGFloat?
   private var activeAnimations: [FadeAnimationData] = []
   private var fadeAnimationDisplayLink: CADisplayLink?
+  private var lastWidth: CGFloat?
   private var cachedSize: CachedParagraphUIViewSize?
 
   var textContextMenu: TextContextMenu?
@@ -83,13 +84,12 @@ class ParagraphUIView: UITextView {
   }
 
   override var intrinsicContentSize: CGSize {
-    if let cachedSize {
-      return cachedSize.size
+    let targetWidth = bounds.width
+    guard targetWidth > 0, targetWidth.isFinite else {
+      return CGSize(width: UIView.noIntrinsicMetric, height: UIView.noIntrinsicMetric)
     }
-    var targetWidth = bounds.width
-    if targetWidth <= 0 || targetWidth.isInfinite {
-      // When bounds.width is not valid, we have to give a best guess, otherwise Chat becomes blank in some cases sometimes. It may be related to LazyVStack.
-      targetWidth = UIScreen.main.bounds.width
+    if let cachedSize, cachedSize.targetWidth == targetWidth {
+      return cachedSize.size
     }
     let targetSize = CGSize(width: targetWidth, height: .greatestFiniteMagnitude)
     let contentSize = sizeThatFits(targetSize)
@@ -100,9 +100,9 @@ class ParagraphUIView: UITextView {
 
   override func layoutSubviews() {
     super.layoutSubviews()
-    if bounds.width != cachedSize?.targetWidth {
-      invalidateCachedSize()
-    }
+    guard lastWidth != bounds.width else { return }
+    lastWidth = bounds.width
+    invalidateCachedSize()
     invalidateIntrinsicContentSize()
   }
 

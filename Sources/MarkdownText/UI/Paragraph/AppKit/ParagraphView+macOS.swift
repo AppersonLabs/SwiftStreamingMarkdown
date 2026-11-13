@@ -54,30 +54,34 @@ struct ParagraphView: NSViewRepresentable {
   }
 
   func sizeThatFits(_ proposal: ProposedViewSize, nsView: ParagraphNSView, context: Context) -> CGSize? {
+    if proposal.width == nil {
+      let size = nsView.textStorage?.size() ?? .zero
+      return CGSize(width: size.width.rounded(.up), height: size.height.rounded(.up))
+    }
     guard let width = proposal.width, width > 0, width.isFinite else {
       return nil
     }
 
     if contents != context.coordinator.lastContents || lineSpacing != context.coordinator.lastLineSpacing {
-      context.coordinator.sizeCache.removeAll()
+      context.coordinator.fit = nil
       context.coordinator.lastContents = contents
       context.coordinator.lastLineSpacing = lineSpacing
     }
 
     let cacheKey = (width * 10).rounded() / 10
 
-    if let cachedSize = context.coordinator.sizeCache[cacheKey] {
-      return cachedSize
+    if let fit = context.coordinator.fit, fit.width == cacheKey {
+      return fit.size
     }
 
     let calculatedSize = nsView.measureSize(fittingWidth: width)
 
-    context.coordinator.sizeCache[cacheKey] = calculatedSize
+    context.coordinator.fit = (cacheKey, calculatedSize)
     return calculatedSize
   }
 
   class Coordinator {
-    var sizeCache: [CGFloat: CGSize] = [:]
+    var fit: (width: CGFloat, size: CGSize)?
     var lastContents: NSMutableAttributedString?
     var lastLineSpacing: CGFloat?
   }
