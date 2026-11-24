@@ -20,11 +20,13 @@ struct OrderedListView: View {
           // Every number takes the width of the last, the widest, so item text lines up.
           Text(verbatim: "\(start + items.count - 1).")
             .font(config.orderedListStyle.textFonts, bold: true)
+            .fixedSize()
             .hidden()
             .overlay(alignment: .trailing) {
               Text(verbatim: "\(start + idx).")
                 .font(config.orderedListStyle.textFonts, bold: true)
                 .foregroundStyle(config.orderedListStyle.textColor)
+                .fixedSize()
                 .transition(.opacity)
             }
             .documentTap()
